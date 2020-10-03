@@ -1,0 +1,15 @@
+{
+  "name": "erixdnspod",
+  "version": "0.0.1",
+  "description": "Update the DNS record of your domain name which managed by DNSPOD.",
+  "main": "erixMain.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Eric, Wong",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.20.0",
+    "moment": "^2.29.0"
+  }
+}
