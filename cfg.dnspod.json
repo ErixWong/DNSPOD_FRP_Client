@@ -1,0 +1,21 @@
+{
+	"interval": 1,
+	"baseUrl": "https://dnsapi.cn/",
+	"id": 0,
+	"token": "",
+	"domains": [
+		{
+			"name": "erik.top",
+			"subs": [
+				{
+					"name": "zj"
+				}
+			]
+		}
+	],
+	"headers": {
+		"User-Agent": "ErixDDNSClient/0.0.1(17030999@qq.com)"
+	},
+	"currentIp": {
+	}
+}

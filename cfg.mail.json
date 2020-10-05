@@ -1,0 +1,25 @@
+{
+	"account": {
+		"username": "user@mail.com",
+		"password": "password"
+	},
+	"imapServer": {
+		"host": "imap.ym.163.com",
+		"port": 993,
+		"tls": true
+	},
+	"pop3Server": {
+		"host": "pop.ym.163.com",
+		"port": 995,
+		"tls": true
+	},
+	"smtpServer": {
+		"host": "smtp.ym.163.com",
+		"port": 994,
+		"tls": true
+	},
+	"from": [
+		"aaa@gmail.com",
+		"bbb@gmail.com"
+	]
+}
