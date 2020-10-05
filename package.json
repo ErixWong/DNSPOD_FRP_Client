@@ -1,5 +1,5 @@
 {
-  "name": "erixdnspod",
+  "name": "erixdnspodanfrpclient",
   "version": "0.0.1",
   "description": "Update the DNS record of your domain name which managed by DNSPOD.",
   "main": "erixMain.js",
@@ -10,6 +10,10 @@
   "license": "ISC",
   "dependencies": {
     "axios": "^0.20.0",
-    "moment": "^2.29.0"
+    "imap": "^0.8.19",
+    "mailparser": "^3.0.0",
+    "moment": "^2.29.0",
+    "node-pop3": "^0.6.0",
+    "voca": "^1.4.0"
   }
 }
