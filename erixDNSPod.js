@@ -1,111 +1,97 @@
 const axios = require("axios");
-const fs = require("fs");
-const str = require("./str");
+const erixConf = require("./erixConf");
 
-exports.erixDNSPod = function (logPath) {
-    var me = {};
+exports.erixDNSPod = class {
 
-    me.logPath = logPath;
-
-    me.init = function () {
-        me.sys.loadConf();
+    constructor(log) {
+        this.log = log;
+        this.sys = new erixConf.erixConf('dnspod', log);
     }
 
-    me.sys = {
-        conf: {},
-        loadConf: function () {
-            var rows = fs.readFileSync('./config.json');
-            me.sys.conf = JSON.parse(rows);
-        },
-        saveConf: function () {
-            fs.writeFileSync('./config.json', JSON.stringify(me.sys.conf, null, '\t'));
-        }
-    };
-
-    me.getIp = async function () {
+    async getIp() {
         try {
+            if (!this.sys.conf || !this.sys.conf.domains) {
+                return { ok: false, message: 'Configure is not loaded.' };
+            }
+
             //get current ip address
             var res = await axios.get('https://api.ipify.org?format=json');
 
-            str.SaveLog(me.logPath, 'Get current IP address:\t' + res.data.ip);
+            this.sys.saveLog(1, 'Get current IP address:\t' + res.data.ip);
 
-            if (!me.sys.conf.currentIp || me.sys.conf.currentIp.ip !== res.data.ip) {
-                me.sys.conf.currentIp = res.data;
-                me.sys.conf.currentIp.lastUpdate = new Date();
-                me.sys.saveConf();
+            if (!this.sys.conf.currentIp || this.sys.conf.currentIp.ip !== res.data.ip) {
+                this.sys.conf.currentIp = res.data;
+                this.sys.conf.currentIp.lastUpdate = new Date();
+                this.sys.saveConf();
                 return { ok: true, expired: true };
             }
 
-            me.sys.conf.currentIp.lastUpdate = new Date();
-            me.sys.saveConf();
+            this.sys.conf.currentIp.lastUpdate = new Date();
+            this.sys.saveConf();
 
             return { ok: true, expired: false };
         } catch (ex) {
-            str.SaveLog(me.logPath, 'error when getting ip address', ex.message);
+            this.sys.saveLog(3, 'error when getting ip address', ex.message);
             return { ok: false, message: ex.message };
         }
     }
 
-    me.getAllDNSRecs = async function () {
-
+    async getAllDNSRecs() {
         try {
-            if (!me.sys.conf || !me.sys.conf.domains) {
-                return false;
+            if (!this.sys.conf || !this.sys.conf.domains) {
+                return { ok: false, message: 'Configure is not loaded.' };
             }
 
             var ok = true;
-            for (let d of me.sys.conf.domains) {
+            for (let d of this.sys.conf.domains) {
                 for (let s of d.subs) {
-                    var r = await me.getDNSRec(d, s);
+                    var r = await this.getDNSRec(d, s);
                     if (!r.ok) {
-                        console.log(r.message);
+                        this.sys.saveLog(2, r.message);
                         ok = false;
                     }
                 }
             }
 
-            if (ok) { me.sys.saveConf(); }
+            if (ok) { this.sys.saveConf(); }
             return { ok: ok };
         }
         catch (ex) {
-            str.SaveLog(me.logPath, 'Get All DNS Records error', ex.message);
+            this.sys.saveLog(3, 'Get All DNS Records error', ex.message);
             return { ok: false, message: ex.message };
         }
     }
 
-    me.updateAllDNSRecs = async function () {
+    async updateAllDNSRecs() {
         try {
-            if (!me.sys.conf || !me.sys.conf.domains) {
-                return false;
+            if (!this.sys.conf || !this.sys.conf.domains) {
+                return { ok: false, message: 'Configure is not loaded.' };
             }
 
             var ok = true;
-            for (let d of me.sys.conf.domains) {
+            for (let d of this.sys.conf.domains) {
                 for (let s of d.subs) {
-                    var r = await me.updateDNS(d, s);
-                    if (!r.ok) {
-                        console.log(r.message);
-                        ok = false;
-                    }
+                    var r = await this.updateDNS(d, s);
+                    if (!r.ok) { ok = false; }
                 }
             }
 
             return { ok: ok };
         }
         catch (ex) {
-            str.SaveLog(me.logPath, 'Update All DNS Records error', ex.message);
+            this.sys.saveLog(3, 'Update All DNS Records error', ex.message);
             return { ok: false, message: ex.message };
         }
     }
 
-    me.getDNSRec = async function (domain, sub) {
+    async getDNSRec(domain, sub) {
         try {
-            var para = "login_token=" + me.sys.conf.id + ',' + me.sys.conf.token + "&format=json&domain=" + domain.name + '&sub_domain=' + sub.name;
+            var para = "login_token=" + this.sys.conf.id + ',' + this.sys.conf.token + "&format=json&domain=" + domain.name + '&sub_domain=' + sub.name;
 
-            var res = await axios.post(me.sys.conf.baseUrl + 'Record.List', para, { headers: me.sys.conf.headers });
+            var res = await axios.post(this.sys.conf.baseUrl + 'Record.List', para, { headers: this.sys.conf.headers });
 
             if (res.data.status.code !== '1') {
-                str.SaveLog(me.logPath, 'Update DNS Record error:', res.data.status);
+                this.sys.saveLog(3, 'Get DNS Record error:' + sub.name + '.' + domain.name, res.data.status);
                 return { ok: false, message: res.data.status };
             }
 
@@ -118,74 +104,75 @@ exports.erixDNSPod = function (logPath) {
             }
             return { ok: true };
         } catch (ex) {
-            str.SaveLog(logPath, 'Error when get dns record:' + ex.message);
+            this.sys.saveLog(3, 'Error when get dns record:' + ex.message, {domain:domain, sub:sub});
             return { ok: false, message: ex.message };
         }
     }
 
-    me.updateDNS = async function (domain, sub) {
+    async updateDNS(domain, sub) {
         try {
-            var para = "login_token=" + me.sys.conf.id + ',' + me.sys.conf.token;
+            var para = "login_token=" + this.sys.conf.id + ',' + this.sys.conf.token;
             para += "&format=json";
             para += "&domain_id=" + domain.id;
             para += "&record_id=" + sub.id;
             para += "&sub_domain=" + sub.name;
             para += "&record_type=" + sub.type;
             para += "&record_line_id=" + sub.line_id;
-            para += "&value=" + me.sys.conf.currentIp.ip;
+            para += "&value=" + this.sys.conf.currentIp.ip;
 
-            var res = await axios.post(me.sys.conf.baseUrl + 'Record.Modify', para, { headers: me.sys.conf.headers });
+            var res = await axios.post(this.sys.conf.baseUrl + 'Record.Modify', para, { headers: this.sys.conf.headers });
 
             if (res.data.status.code !== '1') {
-                str.SaveLog(me.logPath, 'Update DNS Record error:', res.data.status);
+                this.sys.saveLog(3, 'Failed update DNS Record:' + sub.name + '.' + domain.name, res.data.status);
                 return { ok: false, message: res.data.status };
             }
 
+            this.sys.saveLog(1, 'Successed update DNS record:' + sub.name + '.' + domain.name);
             return { ok: true };
         } catch (ex) {
-            str.SaveLog(me.logPath, 'Update DNS record error', ex.message);
+            this.sys.saveLog(3, 'Update DNS record error:' + ex.message, { domain: domain, sub: sub });
             return { ok: false, message: ex.message };
         }
     }
 
-    me.setRemark = async function (domain, sub, remark) {
+    async setRemark(domain, sub, remark) {
         try {
-            var para = "login_token=" + me.sys.conf.id + ',' + me.sys.conf.token;
+            var para = "login_token=" + this.sys.conf.id + ',' + this.sys.conf.token;
             para += "&format=json";
             para += "&domain_id=" + domain.id;
             para += "&record_id=" + sub.id;
             para += "&remark=" + remark;
 
-            var res = await axios.post(me.sys.conf.baseUrl + 'Record.Modify', para, { headers: me.sys.conf.headers });
+            var res = await axios.post(this.sys.conf.baseUrl + 'Record.Modify', para, { headers: this.sys.conf.headers });
 
             if (res.data.status.code !== '1') {
-                str.SaveLog(me.logPath, 'Update DNS Record error:', res.data.status);
+                this.sys.saveLog(3, 'Update DNS Record error:', res.data.status);
                 return { ok: false, message: res.data.status };
             }
 
+            this.sys.saveLog(1, 'Successed update remark of domain:' + sub.name + '.' + domain.name);
+
             return { ok: true };
         } catch (ex) {
+            this.sys.saveLog(3, 'Set remark failed:' + ex.message,{ domain: domain, sub: sub });
             return { ok: false, message: ex.message };
         }
     }
 
-    me.run = async function () {
-        if (!me.sys.conf.domains) {
-            return false;
+    async update() {
+        if (!this.sys.conf || !this.sys.conf.domains) {
+            return { ok: false, message: 'Configure is not loaded.' };
         }
 
-        var res = await me.getAllDNSRecs();
+        var res = await this.getAllDNSRecs();
         if (!res) { return res; }
 
-        res = await me.getIp();
+        res = await this.getIp();
         if (!res.ok) { return res; }
 
         if (res.expired) {
-            me.updateAllDNSRecs();
+            this.updateAllDNSRecs();
         }
-        me.sys.loadConf();
+        this.sys.loadConf();
     }
-
-    me.init();
-    return me;
 }
